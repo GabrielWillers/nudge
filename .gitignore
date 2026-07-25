@@ -1,0 +1,54 @@
+# --- Segredos (invariante do PRD: nenhum segredo em texto claro, em nenhum commit) ---
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+
+# --- Python / backend ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# --- Node / frontend ---
+node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# --- Terraform / infraestrutura ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+.terraform.lock.hcl.bak
+
+# --- Testes de qualidade (fase 11) ---
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# --- Sistema operacional e editor ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
