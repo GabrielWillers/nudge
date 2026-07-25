@@ -48,14 +48,13 @@ registrada e seu efeito observável em produção.
 ### Verificação de mudança
 
 - [ ] Dada uma proposta de mudança aberta, quando ela é publicada, então
-      formatação, análise estática, tipos e testes de ambos os componentes são
-      verificados automaticamente e o resultado fica visível na própria
-      proposta.
+      formatação, análise estática, tipos e testes são verificados
+      automaticamente e o resultado fica visível na própria proposta.
 - [ ] Dada uma proposta cuja verificação falhou, quando se tenta integrá-la à
       linha principal, então a integração é bloqueada.
-- [ ] Dada uma proposta de mudança, quando a verificação roda, então cada
-      componente é verificado em paralelo com os outros, e o tempo total até o
-      veredito fica abaixo de 10 minutos.
+- [ ] Dada uma proposta de mudança, quando a verificação roda, então as
+      checagens independentes rodam em paralelo, e o tempo total até o veredito
+      fica abaixo de 10 minutos.
 - [ ] Dada uma dependência com vulnerabilidade conhecida ou versão nova,
       quando a varredura periódica roda, então uma proposta de atualização é
       aberta automaticamente.
@@ -63,8 +62,8 @@ registrada e seu efeito observável em produção.
 ### Artefato
 
 - [ ] Dada uma marcação de versão semântica publicada, quando o processo de
-      release termina, então existem imagens dos dois componentes no registro
-      identificadas por aquela versão e pelo commit exato de origem.
+      release termina, então existe a imagem do serviço no registro
+      identificada por aquela versão e pelo commit exato de origem.
 - [ ] Dada uma versão já publicada no registro, quando se tenta publicar
       conteúdo diferente com a mesma identificação, então a publicação não
       substitui o conteúdo anterior.
@@ -88,7 +87,7 @@ registrada e seu efeito observável em produção.
       então a produção volta a essa versão em menos de 5 minutos e sem
       reconstruir imagem.
 - [ ] Dado um container que morre ou é reagendado, quando ele volta, então os
-      dados dos usuários continuam presentes.
+      lembretes gravados continuam presentes.
 - [ ] Dada uma instância que parou de responder, quando o orquestrador a
       sonda, então ela deixa de receber tráfego até responder de novo, e o
       serviço continua atendendo pelas instâncias sadias quando houver.
@@ -105,6 +104,9 @@ registrada e seu efeito observável em produção.
 - [ ] Dado o repositório lido por um terceiro, quando ele procura segredos,
       então nenhum valor de segredo é recuperável a partir do conteúdo
       versionado, em nenhum ponto do histórico.
+- [ ] Dada uma rota de escrita em produção, quando requisitada sem credencial,
+      então é recusada pelo controlador de entrada — o aplicativo não tem
+      autenticação própria (ADR-0010).
 - [ ] Dado um segredo necessário à aplicação, quando o cluster é recriado do
       zero, então o segredo é reintroduzido por um procedimento documentado que
       não exige copiar valor de dentro do repositório.
@@ -125,19 +127,19 @@ registrada e seu efeito observável em produção.
 
 - [ ] Dada a produção em operação, quando se abre o painel de
       observabilidade, então latência, taxa de erro e saturação de CPU e
-      memória dos dois componentes estão visíveis com histórico.
+      memória do serviço estão visíveis com histórico.
 - [ ] Dada uma condição de indisponibilidade que persiste pelo intervalo
       definido, quando ela é detectada, então um alerta é entregue em um canal
       fora do cluster.
 - [ ] Dado que a aplicação está de pé, quando se consulta o endpoint de
-      métricas do backend, então ele expõe contagem de requisições, latência e
+      métricas do serviço, então ele expõe contagem de requisições, latência e
       erros por rota.
 
 ### Qualidade sob execução
 
-- [ ] Dado um ambiente descartável com os dois componentes e um banco, quando
-      o teste ponta a ponta roda, então ele exercita registro, entrada e o
-      ciclo de vida completo de um lembrete em um navegador real.
+- [ ] Dado um ambiente descartável com o serviço e um banco, quando o teste
+      ponta a ponta roda, então ele exercita criar, concluir e apagar um
+      lembrete em um navegador real.
 - [ ] Dado um perfil de carga definido, quando executado contra o ambiente
       descartável, então throughput sustentado, latência por percentil e o
       ponto de saturação ficam registrados no repositório.
@@ -164,9 +166,9 @@ registrada e seu efeito observável em produção.
   coisa aplicada fora dele é divergência a ser desfeita.
 - Todo recurso pago no provedor de nuvem é descrito por infraestrutura como
   código.
-- Nenhum dado de usuário trafega em texto claro: a única resposta possível em
-  texto claro no domínio público é um redirecionamento para HTTPS.
-- Dados de usuário sobrevivem à destruição e recriação de qualquer container.
+- Nenhum dado trafega em texto claro: a única resposta possível em texto claro
+  no domínio público é um redirecionamento para HTTPS.
+- Os lembretes sobrevivem à destruição e recriação de qualquer container.
 - Toda decisão difícil de reverter tem um ADR correspondente, e ADR aceito
   nunca é editado nem apagado.
 - Nenhum processo de container roda como superusuário.
@@ -183,10 +185,12 @@ registrada e seu efeito observável em produção.
 - Um só operador, trabalhando em horas de fim de semana: nenhuma etapa pode
   exigir intervenção em horário determinado nem plantão.
 - O nó de 4 GB hospeda aplicação, banco, observabilidade e reconciliador
-  simultaneamente; qualquer componente novo precisa caber nesse teto ou
+  simultaneamente; qualquer carga nova precisa caber nesse teto ou
   justificar a expansão do node pool.
 - A plataforma não pode depender de nenhuma feature nova do aplicativo, cujo
   escopo está congelado (ver PRD `nudge-app-v1` e ADR-0004).
+- O aplicativo é um serviço único, sem autenticação (ADR-0010): proteger a
+  escrita é responsabilidade do controlador de entrada, não do código.
 - Kubernetes entra antes da automação completa de integração contínua
   (ADR-0006).
 

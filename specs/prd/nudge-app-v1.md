@@ -3,153 +3,137 @@
 ## Contexto
 
 Uma plataforma de DevOps só se prova contra uma carga de trabalho real. Um
-"hello world" não exercita banco de dados, migração de schema, segredo,
-volume persistente, sonda de saúde nem isolamento entre usuários — e são
-exatamente essas as coisas que a plataforma precisa demonstrar que sabe
-operar. Um aplicativo de lembretes com contas de usuário exercita todas elas
-com o menor escopo funcional possível.
+"hello world" não exercita banco de dados, migração de schema, volume
+persistente, sonda de saúde nem métrica — e são essas as coisas que a
+plataforma precisa demonstrar que sabe operar.
 
-Nudge é esse aplicativo: um lugar onde uma pessoa registra o que precisa
-fazer e até quando, e consulta o que está vencendo. Ele é o meio, não o fim.
-Seu escopo funcional fecha na v1 e não cresce depois (ver ADR-0004), porque
-todo esforço adicional pertence à plataforma em volta dele.
+Nudge é o menor aplicativo que exercita todas elas: uma lista compartilhada de
+lembretes, com o que fazer e até quando. Ele é o meio, não o fim. Seu escopo
+funcional fecha na v1 e não cresce (ADR-0004), e sua forma é deliberadamente
+mínima — um serviço, HTML renderizado no servidor, sem usuários e sem
+autenticação (ADR-0010).
 
 Hoje nada existe: nenhuma linha de código, nenhum dado, nenhum ambiente.
 
 ## Atores
 
-- **Visitante** — pessoa sem conta; espera poder criar uma e entrar.
-- **Usuário registrado** — pessoa autenticada; espera criar, consultar,
-  alterar e apagar os próprios lembretes, e não ver os de mais ninguém.
-- **Orquestrador de containers** — sonda a aplicação para decidir se aquela
-  instância está apta a receber tráfego e se precisa ser reiniciada.
+- **Visitante** — qualquer pessoa com a URL. Consulta a lista e, quando
+  autorizado pelo controlador de entrada, escreve nela. Não há conta nem sessão.
+- **Orquestrador de containers** — sonda o serviço para decidir se a instância
+  recebe tráfego e se precisa ser reiniciada.
+- **Coletor de métricas** — raspa o endpoint de métricas periodicamente.
 - **Suíte de testes automatizada** — exercita os predicados abaixo a cada
-  proposta de mudança; é a única guardiã de regressão, já que o escopo
-  congela e ninguém mais vai revisar este código manualmente.
+  proposta de mudança; como o escopo congela, é a única guardiã de regressão.
 - **Avaliador técnico** — abre a aplicação publicada para confirmar que ela
-  funciona de verdade e que a versão no ar é a que o repositório diz.
+  funciona e que a versão no ar é a que o repositório declara.
 
 ## Predicados
 
-### Identidade e sessão
-
-- [ ] Dado um e-mail ainda não cadastrado e uma senha de ao menos 8
-      caracteres, quando o visitante solicita registro, então a conta passa a
-      existir e a resposta não contém a senha em nenhuma forma.
-- [ ] Dado um e-mail já cadastrado, quando o visitante solicita registro,
-      então a operação é rejeitada e continua existindo exatamente uma conta
-      com aquele e-mail.
-- [ ] Dada uma senha com menos de 8 caracteres, quando o visitante solicita
-      registro, então a operação é rejeitada e nenhuma conta é criada.
-- [ ] Dada uma credencial válida, quando o visitante autentica, então recebe
-      um token de acesso acompanhado do seu prazo de validade.
-- [ ] Dada uma credencial inválida, quando o visitante autentica, então a
-      recusa é indistinguível entre "e-mail não existe" e "senha errada".
-- [ ] Dado um token ausente, malformado ou expirado, quando se acessa
-      qualquer recurso de lembrete, então a operação é recusada por falta de
-      autenticação e nenhum dado de lembrete é retornado.
-- [ ] Dado um usuário autenticado na interface, quando o token expira e ele
-      executa uma ação, então é levado de volta à tela de entrada.
-
 ### Lembretes
 
-- [ ] Dado um usuário autenticado, quando cria um lembrete com título e
-      instante de vencimento, então o lembrete passa a existir vinculado a
-      ele e é retornado com um identificador.
-- [ ] Dado um usuário autenticado com lembretes, quando lista seus
-      lembretes, então recebe apenas os próprios, ordenados por vencimento
-      crescente.
-- [ ] Dado um lembrete pertencente a outro usuário, quando se tenta ler,
-      alterar ou apagar, então a resposta é idêntica à de um identificador
-      inexistente.
-- [ ] Dado um lembrete próprio, quando se altera título, vencimento ou
-      estado de concluído, então a leitura seguinte reflete a alteração.
-- [ ] Dado um lembrete próprio, quando se apaga, então ele desaparece da
-      listagem e a leitura direta passa a responder "não encontrado".
-- [ ] Dado um instante de vencimento informado com fuso horário, quando é
-      gravado e lido de volta, então representa o mesmo instante absoluto,
-      qualquer que seja o fuso de quem lê.
-- [ ] Dado um título vazio, um título acima de 200 caracteres ou um
-      vencimento em formato inválido, quando se cria ou altera, então a
-      operação é rejeitada indicando o campo inválido e nada é gravado.
-- [ ] Dado um usuário sem nenhum lembrete, quando abre a interface, então vê
-      um estado vazio explícito e não uma tela em branco ou um erro.
+- [x] Dado um título não vazio e um instante de vencimento válidos, quando o
+      visitante submete o formulário de criação, então o lembrete passa a
+      existir e aparece na lista.
+- [x] Dados lembretes existentes, quando a lista é aberta, então todos aparecem
+      ordenados por vencimento crescente.
+- [x] Dado um lembrete não concluído, quando o visitante o marca como
+      concluído, então a lista passa a exibi-lo como concluído; e marcá-lo de
+      novo o devolve a não concluído.
+- [x] Dado um lembrete existente, quando o visitante o apaga, então ele
+      desaparece da lista e não volta ao recarregar.
+- [x] Dado um título vazio, um título acima de 200 caracteres ou um vencimento
+      em formato inválido, quando o formulário é submetido, então a operação é
+      rejeitada com mensagem na própria página e nada é gravado.
+- [x] Dado um instante de vencimento informado com fuso horário, quando é
+      gravado e lido de volta, então representa o mesmo instante absoluto.
+- [x] Dada nenhuma entrada na lista, quando a página é aberta, então há um
+      estado vazio explícito, não uma tela em branco nem um erro.
+- [x] Dado um identificador inexistente, quando se tenta concluir ou apagar,
+      então a resposta é "não encontrado" e nada é gravado.
 
 ### Operabilidade
 
-- [ ] Dada a aplicação em execução, quando se consulta o endpoint de saúde,
-      então responde sucesso e informa o identificador do build em execução.
-- [ ] Dada a aplicação sem conseguir alcançar o banco de dados, quando o
-      orquestrador consulta o endpoint de prontidão, então a resposta é
-      falha.
-- [ ] Dada uma versão implantada, quando um usuário abre a interface, então o
-      identificador do build está visível na tela.
-- [ ] Dado o schema do banco em qualquer versão anterior, quando a aplicação
-      sobe, então as migrações pendentes são aplicadas antes de ela começar a
-      atender.
+- [x] Dada a aplicação em execução, quando se consulta o endpoint de saúde,
+      então responde sucesso e informa o identificador do build, **sem tocar o
+      banco**.
+- [x] Dada a aplicação sem conseguir alcançar o banco, quando o orquestrador
+      consulta o endpoint de prontidão, então a resposta é falha.
+- [x] Dada a aplicação em execução, quando o coletor raspa o endpoint de
+      métricas, então há contagem de requisições, latência e erros por rota.
+- [x] Dada uma versão implantada, quando a página é aberta, então o
+      identificador do build está visível nela.
+- [x] Dado o schema do banco em versão anterior, quando a aplicação sobe, então
+      as migrações pendentes são aplicadas antes de ela atender.
 
 ## Invariantes
 
-- Todo lembrete tem exatamente um dono, e esse dono nunca muda.
-- Nenhum usuário observa dado de outro usuário, em nenhum fluxo.
-- Senha nunca é gravada nem devolvida em forma recuperável.
-- Todo e-mail é único no sistema.
+- A lista é única e compartilhada: nenhum lembrete tem dono, e não existe
+  conceito de usuário no sistema.
 - Todo instante gravado está em UTC.
-- O identificador do build exposto pela aplicação corresponde ao código que
-  ela está de fato executando.
-- A interface nunca apresenta estado autenticado sem um token válido em mãos.
+- O endpoint de saúde nunca depende do banco — do contrário, uma
+  indisponibilidade do banco provocaria reinício em laço.
+- O identificador de build exposto corresponde ao código que está executando.
+- Toda escrita passa por validação no servidor; nenhuma validação vive apenas
+  no formulário.
 
 ## Restrições
 
-- O escopo funcional congela ao fim da v1: nenhuma feature nova de produto
-  entra depois (ADR-0004).
-- Nenhum fluxo pode depender de entregar mensagem a um ser humano: não há
-  envio de e-mail, push ou SMS em lugar nenhum do sistema.
-- Senha mínima de 8 caracteres; título de lembrete máximo de 200 caracteres.
+- Escopo funcional congela ao fim da v1 (ADR-0004).
+- Um serviço só, HTML renderizado no servidor. Sem aplicação de página única,
+  sem empacotador, sem `package.json` no repositório (ADR-0010).
+- Sem autenticação no aplicativo. A escrita em produção é protegida por
+  autenticação básica no controlador de entrada (ADR-0010).
+- Nenhum fluxo depende de entregar mensagem a um ser humano: não há envio de
+  e-mail, push ou SMS em lugar nenhum.
+- Título de lembrete máximo de 200 caracteres.
 - Interface em português, língua única.
-- Aplicação e banco dividem um nó de 4 GB com toda a plataforma: a soma de
-  memória em regime normal fica em até 1 GB.
-- Sem paginação: a interface e a API assumem volume de demonstração
-  (dezenas de lembretes por usuário, não milhares).
+- Aplicação e banco dividem um nó de 4 GB com toda a plataforma: até 650 MB
+  somados em regime normal.
+- Sem paginação: volume de demonstração, dezenas de lembretes.
+- **No máximo 20 arquivos de código** no aplicativo (ADR-0010). Passar disso é
+  sinal de escopo crescendo.
 
 ## Fora de escopo
 
-- Notificar o usuário de qualquer forma — o app não avisa ninguém; lembretes
-  são consultados. Isto inclui e-mail, push, SMS e alerta no navegador.
-- Refresh token, revogação de sessão, logout no servidor, expiração
-  deslizante.
-- Recuperação de senha e verificação de e-mail.
-- Login social, OAuth, SSO.
-- Lembretes recorrentes, subtarefas, etiquetas, prioridade, anexos, busca
-  textual.
-- Compartilhar lembrete com outra pessoa; papéis, permissões, administração.
+- Usuários, contas, autenticação, sessão, isolamento de dados por dono.
+- Notificar alguém de qualquer forma — o app não avisa ninguém; lembretes são
+  consultados. Inclui e-mail, push, SMS e alerta no navegador.
+- Alterar um lembrete existente: o fluxo é criar, concluir e apagar.
+- Lembretes recorrentes, subtarefas, etiquetas, prioridade, anexos, busca.
+- Paginação, filtros e ordenação alternativa.
+- JavaScript de aplicação, framework de frontend, TypeScript.
 - Aplicativo móvel, PWA, uso offline.
-- Internacionalização e escolha de fuso horário pelo usuário.
-- Exclusão de conta e exportação de dados.
+- Internacionalização e escolha de fuso pelo visitante.
+- API em JSON para consumo por terceiros.
 
 ## Critérios de aceite
 
-- [ ] Todo predicado acima tem ao menos um teste automatizado
-      correspondente, e a suíte inteira roda com um comando.
-- [ ] Cobertura de linhas do backend ≥ 70%.
-- [ ] A partir do clone, copiar o arquivo de ambiente de exemplo e subir o
-      ambiente local deixa a interface usável em menos de 2 minutos, sem
-      nenhum outro passo manual.
-- [ ] Um avaliador consegue, pela interface e sem instruções: registrar-se,
-      entrar, criar, alterar, concluir e apagar um lembrete.
-- [ ] Nenhum segredo presente no repositório, confirmado por varredura
-      automatizada.
-- [ ] O identificador do build aparece tanto no endpoint de saúde quanto na
-      interface, e os dois coincidem.
+- [x] Todo predicado acima tem ao menos um teste automatizado, e a suíte roda
+      com um comando (`make test`): 25 testes.
+- [x] Cobertura de linhas ≥ 70% — medida: 98%.
+- [x] O aplicativo tem no máximo 20 arquivos de código, contados e registrados —
+      13 (`make files`).
+- [x] A partir do clone, copiar o arquivo de ambiente de exemplo e subir o
+      ambiente local deixa a página usável em menos de 2 minutos, sem nenhum
+      outro passo manual — 52 s com build sem cache.
+- [ ] Um avaliador consegue, sem instruções: criar, concluir e apagar um
+      lembrete pela página. *Os três fluxos foram exercidos pela HTTP real, mas
+      este critério é sobre um humano descobrir a página sozinho: fica aberto
+      até a fase 11, que o cobre em navegador de verdade.*
+- [ ] Nenhum segredo no repositório, confirmado por varredura. *A varredura
+      (Trivy) entra na fase 9 da plataforma, e o histórico completo é verificado
+      na fase 13.*
+- [x] O identificador do build aparece no endpoint de saúde e na página, e os
+      dois coincidem.
 
 ## Fases
 
-1. Modelo de dados e migração inicial — depende de: —
-2. Identidade: registro, autenticação e proteção de rota — depende de: fase 1
-3. Lembretes: ciclo de vida completo com isolamento por dono — depende de:
-   fase 2
-4. Endpoints de saúde e prontidão, com exposição do identificador de build —
-   depende de: fase 3
-5. Interface: entrada, registro, listagem, formulário e estado vazio —
-   depende de: fase 3
-6. Suíte de testes cobrindo todos os predicados — depende de: fases 4 e 5
+1. [x] Modelo de dados e migração inicial — depende de: —
+2. [x] Rotas e templates: criar, listar, concluir, apagar, com validação e
+   estado vazio — depende de: fase 1
+3. [x] Sondas de saúde e prontidão, métricas e exposição do identificador de
+   build — depende de: fase 1
+4. [x] Suíte de testes cobrindo todos os predicados — depende de: fases 2 e 3
+
+Concluídas em 2026-07-25. O escopo funcional está congelado a partir daqui
+(ADR-0004).

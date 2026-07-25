@@ -12,15 +12,18 @@ carga de trabalho, e a plataforma é o entregável.
 
 | documento | assunto |
 |-----------|---------|
-| [`prd/nudge-app-v1.md`](prd/nudge-app-v1.md) | O aplicativo de lembretes. Escopo congelado na v1 (ADR-0004). |
+| [`prd/nudge-app-v1.md`](prd/nudge-app-v1.md) | O aplicativo: lista compartilhada de lembretes, um serviço, sem autenticação. Escopo congelado (ADR-0004) e forma mínima (ADR-0010). |
 | [`prd/plataforma-devops.md`](prd/plataforma-devops.md) | A plataforma: verificação, artefato, cluster, convergência, observação e continuidade. É o objetivo do projeto. |
 
 ## TRD — o como
 
 | documento | assunto |
 |-----------|---------|
-| [`trd/nudge-app-v1.md`](trd/nudge-app-v1.md) | Contratos de API, modelo de dados, stack e NFRs do aplicativo. |
+| [`trd/nudge-app-v1.md`](trd/nudge-app-v1.md) | Rotas, modelo de dados (uma tabela), stack e NFRs do aplicativo. |
 | [`trd/plataforma-devops.md`](trd/plataforma-devops.md) | Fluxo do ciclo, estrutura do repositório, recursos no cluster e critérios de validação por fase. |
+
+O aplicativo cabe em no máximo 20 arquivos de código (ADR-0010). Se a spec dele
+ficar maior que o código, o corte foi no lugar errado.
 
 ## ADR — por que decidimos assim
 
@@ -31,14 +34,15 @@ como substituído.
 | ADR | decisão | status |
 |-----|---------|--------|
 | [0001](adr/0001-monorepo-unico.md) | Repositório único para app, manifestos e infraestrutura | Aceito |
-| [0002](adr/0002-stack-da-aplicacao.md) | React + TypeScript + Vite no frontend, FastAPI + PostgreSQL no backend | Aceito |
-| [0003](adr/0003-auth-jwt-escopo-minimo.md) | Token JWT de acesso único e senha com Argon2, escopo cortado | Aceito |
+| [0002](adr/0002-stack-da-aplicacao.md) | ~~React + Vite no frontend, FastAPI no backend~~ | Substituído por 0010 |
+| [0003](adr/0003-auth-jwt-escopo-minimo.md) | ~~Token JWT de acesso único e senha com Argon2~~ | Substituído por 0010 |
 | [0004](adr/0004-congelar-escopo-funcional.md) | Congelar o escopo funcional do aplicativo ao fim da v1 | Aceito |
 | [0005](adr/0005-doks-no-de-4gb.md) | Kubernetes gerenciado na DigitalOcean, um nó de 4 GB | Aceito |
 | [0006](adr/0006-kubernetes-antes-do-ci.md) | Kubernetes antes do pipeline completo, com verificação mínima antecipada | Aceito |
 | [0007](adr/0007-postgres-statefulset-no-cluster.md) | PostgreSQL no cluster como StatefulSet com volume do provedor | Aceito |
 | [0008](adr/0008-cluster-local-com-kind.md) | kind como cluster local, espelhando a produção | Aceito |
 | [0009](adr/0009-entrada-https-sem-balanceador-gerenciado.md) | Entrada pela porta do nó e certificado por desafio de DNS | Aceito |
+| [0010](adr/0010-servico-unico-sem-autenticacao.md) | Serviço único, HTML no servidor, sem autenticação — **substitui 0002 e 0003** | Aceito |
 
 ### ADRs previstos, ainda não escritos
 
@@ -52,7 +56,7 @@ uma antes do trabalho da fase correspondente:
   justificar (substitui parcialmente o ADR-0009).
 - Adoção de operador de banco de dados no lugar do StatefulSet cru
   (substituiria o ADR-0007).
-- Extração da migração de schema da inicialização do backend, pré-requisito para
+- Extração da migração de schema da inicialização do serviço, pré-requisito para
   mais de uma réplica.
 
 ## Fases
