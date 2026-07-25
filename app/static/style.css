@@ -1,0 +1,322 @@
+/* Único arquivo de estilo, servido pelo próprio aplicativo.
+   Sem empacotador, sem framework de frontend, sem fonte externa (ADR-0010):
+   nada nesta página faz requisição para fora do serviço.
+
+   Contraste verificado em ambos os esquemas: texto ≥ 4,5:1, apoio ≥ 4,5:1. */
+
+:root {
+  color-scheme: light dark;
+
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-alt: #f1f5f9;
+  --borda: #e2e8f0;
+  --texto: #0f172a;
+  --apoio: #475569;
+  --acao: #15803d;
+  --acao-texto: #ffffff;
+  --acao-fraca: #dcfce7;
+  --perigo: #b91c1c;
+  --perigo-fraca: #fef2f2;
+
+  --raio: 10px;
+  --transicao: 150ms ease;
+  --alvo: 44px; /* alvo mínimo de toque */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-alt: #172033;
+    --borda: #334155;
+    --texto: #f8fafc;
+    --apoio: #94a3b8;
+    --acao: #22c55e;
+    --acao-texto: #052e16;
+    --acao-fraca: #14321f;
+    --perigo: #fca5a5;
+    --perigo-fraca: #3f1d1d;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 2.5rem 1rem 3rem;
+  background: var(--bg);
+  color: var(--texto);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.topo,
+main,
+.rodape {
+  max-width: 42rem; /* ~70 caracteres por linha */
+  margin: 0 auto;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.subtitulo {
+  margin: 0.35rem 0 2rem;
+  color: var(--apoio);
+}
+
+/* --- mensagem de erro --------------------------------------------------- */
+
+.erro {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--perigo);
+  border-radius: var(--raio);
+  background: var(--perigo-fraca);
+  color: var(--perigo);
+}
+
+.erro svg {
+  flex: none;
+}
+
+/* --- formulário --------------------------------------------------------- */
+
+.criar {
+  display: grid;
+  grid-template-columns: 1fr 13rem auto;
+  gap: 0.35rem 0.75rem;
+  align-items: end;
+  margin-bottom: 2rem;
+}
+
+.criar label {
+  grid-row: 1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--apoio);
+}
+
+.criar label[for="due_at"] {
+  grid-column: 2;
+}
+
+.criar input {
+  grid-row: 2;
+  width: 100%;
+  min-height: var(--alvo);
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--surface);
+  color: var(--texto);
+  font: inherit;
+  transition: border-color var(--transicao);
+}
+
+.criar input::placeholder {
+  color: var(--apoio);
+  opacity: 0.75;
+}
+
+.criar input:hover {
+  border-color: var(--apoio);
+}
+
+.criar button {
+  grid-row: 2;
+  min-height: var(--alvo);
+  padding: 0 1.4rem;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  background: var(--acao);
+  color: var(--acao-texto);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter var(--transicao);
+}
+
+.criar button:hover {
+  filter: brightness(1.12);
+}
+
+/* Foco sempre visível, nos dois esquemas. */
+:is(input, button):focus-visible {
+  outline: 2px solid var(--acao);
+  outline-offset: 2px;
+}
+
+/* --- lista -------------------------------------------------------------- */
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  transition: border-color var(--transicao);
+}
+
+.item:hover {
+  border-color: var(--apoio);
+}
+
+.item form {
+  margin: 0;
+  display: flex;
+}
+
+/* Botões de ícone: 44×44 de área tocável, sem deslocar o layout no hover. */
+.marcar,
+.apagar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--alvo);
+  height: var(--alvo);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  background: transparent;
+  color: var(--apoio);
+  cursor: pointer;
+  transition:
+    color var(--transicao),
+    background-color var(--transicao);
+}
+
+.marcar:hover {
+  color: var(--acao);
+  background: var(--acao-fraca);
+}
+
+.apagar:hover {
+  color: var(--perigo);
+  background: var(--perigo-fraca);
+}
+
+.item.concluido .marcar {
+  color: var(--acao);
+}
+
+.texto {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.titulo {
+  overflow-wrap: anywhere;
+}
+
+/* Com dia da semana e mês por extenso, a monoespaçada atrapalha; ficam só os
+   numerais tabulares, que mantêm as horas alinhadas entre as linhas. */
+.vencimento {
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--apoio);
+}
+
+/* Concluído não depende só de cor: risco no texto e ícone preenchido. */
+.item.concluido {
+  background: var(--surface-alt);
+}
+
+.item.concluido .titulo {
+  text-decoration: line-through;
+  color: var(--apoio);
+}
+
+/* --- estado vazio ------------------------------------------------------- */
+
+.vazio {
+  margin: 0;
+  padding: 2.5rem 1.5rem;
+  border: 1px dashed var(--borda);
+  border-radius: var(--raio);
+  text-align: center;
+  color: var(--apoio);
+}
+
+/* --- rodapé ------------------------------------------------------------- */
+
+.rodape {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--borda);
+  color: var(--apoio);
+  font-size: 0.8rem;
+}
+
+.rodape code,
+.rodape strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+/* --- responsivo --------------------------------------------------------- */
+
+@media (max-width: 40rem) {
+  body {
+    padding-top: 1.75rem;
+  }
+
+  .criar {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+
+  /* `[for="due_at"]` precisa ser repetido aqui: sem isso ele vence por
+     especificidade e o rótulo fica preso na coluna 2. */
+  .criar label,
+  .criar label[for="due_at"],
+  .criar input,
+  .criar button {
+    grid-row: auto;
+    grid-column: 1;
+  }
+
+  .criar button {
+    margin-top: 0.5rem;
+  }
+}
+
+/* --- preferência de movimento ------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Lista compartilhada de lembretes." />
+    <title>Nudge — lembretes</title>
+    <!-- O endereço carrega o identificador de build: sem isso, o navegador
+         pode servir o estilo antigo depois de um deploy, porque /static não
+         manda Cache-Control e o cache heurístico decide sozinho. -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', path='/style.css') }}?v={{ version }}-{{ commit }}"
+    />
+  </head>
+  <body>
+    <header class="topo">
+      <h1>Nudge</h1>
+      <p class="subtitulo">Uma lista de lembretes, compartilhada por quem tem o link.</p>
+    </header>
+
+    <main>{% block conteudo %}{% endblock %}</main>
+
+    <footer class="rodape">
+      <!-- Identificador de build: com o escopo congelado, é o único sinal
+           observável de que um deploy aconteceu. -->
+      versão <strong>{{ version }}</strong> · commit <code>{{ commit }}</code>
+      · horários em {{ timezone }}
+    </footer>
+  </body>
+</html>
