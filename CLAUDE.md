@@ -128,6 +128,7 @@ CI. Não sugira `pip install`, `python -m pytest` nem `uv run` direto.
 | `make up` / `down` / `clean` | ambiente local (cria o `.env` se faltar) |
 | `make migrate` / `revision m="..."` | Alembic |
 | `make build` | imagem de execução com `APP_VERSION`/`APP_COMMIT` injetados |
+| `make release` | publica no GHCR a imagem da tag em `HEAD`; recusa árvore suja, `HEAD` fora de tag e versão já publicada |
 | `make lock` | regera o `uv.lock` (única coisa que usa a imagem do uv) |
 | `make files` | conta os arquivos de código do app (teto de 20) |
 

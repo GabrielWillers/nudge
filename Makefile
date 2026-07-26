@@ -7,6 +7,8 @@ COMPOSE   := docker compose
 UV_IMAGE  := $(shell sed -n 's/^ARG UV_IMAGE=//p' Dockerfile)
 IN_APP    := $(COMPOSE) run --rm --no-deps app
 WITH_DB   := $(COMPOSE) run --rm app
+# Minúsculas: o registro exige, e o nome do dono no GitHub tem maiúsculas.
+IMAGE     := ghcr.io/gabrielwillers/nudge
 
 .DEFAULT_GOAL := help
 
@@ -82,6 +84,30 @@ build: ## Constrói a imagem de execução com o identificador de build injetado
 		--build-arg APP_VERSION=$$(git describe --tags --always --dirty) \
 		--build-arg APP_COMMIT=$$(git rev-parse HEAD) \
 		-t nudge:local .
+
+.PHONY: release
+release: ## Publica no registro a imagem da tag em HEAD: git tag vX.Y.Z && make release
+	@# Até a fase 9 a publicação é manual (ADR-0006), e o rigor do operador é a
+	@# única proteção. Estes três guarda-corpos são o que substitui o pipeline:
+	@# árvore limpa (não publicar código não commitado), HEAD numa tag (a versão
+	@# não é digitada à mão) e recusa de sobrescrita (invariante do PRD: uma
+	@# identificação de versão nunca aponta para dois conteúdos).
+	@set -eu; \
+	test -z "$$(git status --porcelain)" \
+	  || { echo "erro: árvore de trabalho suja — publicar daqui enviaria código não commitado" >&2; exit 1; }; \
+	version=$$(git describe --tags --exact-match 2>/dev/null) \
+	  || { echo "erro: HEAD não está em uma tag — crie a tag vX.Y.Z antes de publicar" >&2; exit 1; }; \
+	commit=$$(git rev-parse HEAD); \
+	if docker manifest inspect $(IMAGE):$$version >/dev/null 2>&1; then \
+	  echo "erro: $(IMAGE):$$version já existe no registro — versão publicada não se sobrescreve" >&2; exit 1; \
+	fi; \
+	echo "publicando $$version ($$commit)"; \
+	docker build --target runtime --provenance=false \
+		--build-arg APP_VERSION=$$version \
+		--build-arg APP_COMMIT=$$commit \
+		-t $(IMAGE):$$version -t $(IMAGE):$$commit .; \
+	docker push $(IMAGE):$$version; \
+	docker push $(IMAGE):$$commit
 
 .PHONY: lock
 lock: ## Regera o uv.lock (a única coisa que precisa da imagem do uv)
