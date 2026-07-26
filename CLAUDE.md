@@ -90,7 +90,9 @@ Regras que valem em todo fluxo:
   manda, e sem JavaScript o fuso do navegador não chega ao servidor) é
   interpretada em `APP_TIMEZONE`; entrada com offset é respeitada.
 - Escrita por `POST` seguido de redirecionamento 303 para a lista — nunca
-  renderizar resposta direto de um POST.
+  renderizar resposta direto de um POST, **nem no erro de validação**: a
+  mensagem e o que foi digitado atravessam o redirecionamento no cookie
+  `nudge_flash`, consumido na exibição seguinte.
 - **Escape automático do Jinja2 nunca é desligado.** A entrada do visitante é
   reexibida na página; injeção de HTML é a superfície de ataque real deste app.
 - `/healthz` **nunca** toca o banco (invariante do PRD). Se tocar, uma

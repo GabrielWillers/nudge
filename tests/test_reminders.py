@@ -4,6 +4,7 @@ Cada teste referencia o predicado que exercita — os testes são escritos contr
 os predicados, não contra a implementação.
 """
 
+import base64
 import uuid
 from datetime import UTC, datetime
 
@@ -92,9 +93,55 @@ def test_titulo_vazio_e_recusado_com_mensagem_na_pagina(
         "/reminders", data={"title": "   ", "due_at": "2026-08-01T09:30"}
     )
 
-    assert response.status_code == 422
+    # O cliente segue o 303 e termina na lista, com a mensagem na página.
+    assert response.status_code == 200
+    assert str(response.url).endswith("/")
     assert "Informe um título" in response.text
     assert count(session) == 0
+
+
+def test_erro_de_validacao_tambem_redireciona(
+    client: TestClient, session: Session
+) -> None:
+    """Nada é renderizado direto de um POST, nem quando a validação falha —
+    do contrário recarregar a página de erro reenviaria o formulário."""
+    response = client.post(
+        "/reminders",
+        data={"title": "", "due_at": "2026-08-01T09:30"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    assert count(session) == 0
+
+
+def test_mensagem_de_erro_aparece_uma_vez_e_some(
+    client: TestClient, session: Session
+) -> None:
+    resposta = client.post(
+        "/reminders", data={"title": "", "due_at": "2026-08-01T09:30"}
+    )
+    assert "Informe um título" in resposta.text
+
+    # Recarregar não repete a mensagem: o cookie é consumido na exibição.
+    assert "Informe um título" not in client.get("/").text
+
+
+def test_cookie_de_mensagem_corrompido_e_ignorado(client: TestClient) -> None:
+    """O cookie vem do navegador, então pode chegar de qualquer jeito: a
+    página não pode quebrar por causa dele."""
+    client.cookies.set("nudge_flash", "isto-nao-e-base64-valido!!")
+    assert client.get("/").status_code == 200
+
+    # Base64 válido, mas o conteúdo não é um objeto.
+    client.cookies.set(
+        "nudge_flash", base64.urlsafe_b64encode(b'["lista", "nao", "objeto"]').decode()
+    )
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Nenhum lembrete" in response.text
 
 
 def test_titulo_acima_de_200_caracteres_e_recusado(
@@ -104,7 +151,7 @@ def test_titulo_acima_de_200_caracteres_e_recusado(
         "/reminders", data={"title": "a" * 201, "due_at": "2026-08-01T09:30"}
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 200
     assert "no máximo 200 caracteres" in response.text
     assert count(session) == 0
 
@@ -127,7 +174,7 @@ def test_vencimento_invalido_e_recusado(client: TestClient, session: Session) ->
         "/reminders", data={"title": "Comprar pão", "due_at": "ontem à tarde"}
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 200
     assert "vencimento válido" in response.text
     assert count(session) == 0
     # A entrada volta preenchida no formulário, para não obrigar a redigitar.
@@ -137,7 +184,7 @@ def test_vencimento_invalido_e_recusado(client: TestClient, session: Session) ->
 def test_vencimento_vazio_e_recusado(client: TestClient, session: Session) -> None:
     response = client.post("/reminders", data={"title": "Comprar pão", "due_at": ""})
 
-    assert response.status_code == 422
+    assert response.status_code == 200
     assert "vencimento válido" in response.text
     assert count(session) == 0
 

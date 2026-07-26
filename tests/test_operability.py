@@ -116,6 +116,9 @@ def test_estilo_e_servido_pelo_proprio_aplicativo(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/css")
+    # Revalidação obrigatória: sem isso o navegador pode continuar exibindo o
+    # estilo da versão anterior depois de um deploy.
+    assert response.headers["cache-control"] == "no-cache"
 
 
 def test_favicon_e_servido_pelo_proprio_aplicativo(client: TestClient) -> None:
