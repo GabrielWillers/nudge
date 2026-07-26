@@ -63,16 +63,32 @@ main,
   margin: 0 auto;
 }
 
-h1 {
-  margin: 0;
-  font-size: 1.75rem;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+/* Sem o subtítulo, o título ficava solto no alto da página. A linha de base
+   fecha o cabeçalho e faz par com a do rodapé, emoldurando o conteúdo. */
+.topo {
+  margin-bottom: 2rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--borda);
 }
 
-.subtitulo {
-  margin: 0.35rem 0 2rem;
-  color: var(--apoio);
+/* Caixa alta pelo CSS, não no texto: o conteúdo segue "Nudge", que é como o
+   leitor de tela deve pronunciar. Caixa alta pede entrelinha positiva, ao
+   contrário da negativa que serve para caixa mista. */
+h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+h1 svg {
+  flex: none;
+  color: var(--acao);
 }
 
 /* --- mensagem de erro --------------------------------------------------- */

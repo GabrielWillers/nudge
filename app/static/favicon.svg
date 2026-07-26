@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Nudge">
+  <!-- Fundo sólido: aos 16 px da aba, forma cheia lê melhor que traço fino,
+       e o verde funciona tanto na barra clara quanto na escura. -->
+  <rect width="32" height="32" rx="8" fill="#22c55e" />
+  <g fill="none" stroke="#052e16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M23 14a7 7 0 0 0-14 0c0 7-3.5 8-3.5 8h21S23 21 23 14" />
+    <path d="M13.6 26a2.4 2.4 0 0 0 4.8 0" />
+  </g>
+</svg>

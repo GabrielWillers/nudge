@@ -42,6 +42,12 @@ Deriva de `specs/prd/nudge-app-v1.md`.
   O campo de entrada continua sendo `datetime-local`: o formato que ele exibe é
   decidido pelo navegador do visitante, e sem JavaScript (ADR-0010) não há como
   influenciá-lo.
+- 2026-07-25 — cabeçalho enxugado (some a frase de apresentação, o nome ganha
+  marca e linha de base) e **favicon próprio em `app/static/favicon.svg`**,
+  declarado no `<head>`. O favicon não é enfeite: sem a declaração, o navegador
+  pede `/favicon.ico` na raiz, recebe 404, e cada visita injeta erro no log e na
+  métrica por rota — ruído que apareceria como taxa de erro no painel da fase
+  12. Arquivos de código seguem em 13; o favicon é ativo, como o CSS.
 
 ## Escopo + NFRs
 

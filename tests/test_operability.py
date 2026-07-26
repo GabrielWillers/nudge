@@ -118,6 +118,17 @@ def test_estilo_e_servido_pelo_proprio_aplicativo(client: TestClient) -> None:
     assert response.headers["content-type"].startswith("text/css")
 
 
+def test_favicon_e_servido_pelo_proprio_aplicativo(client: TestClient) -> None:
+    """Declarado no HTML e servido daqui: sem isso o navegador pede
+    `/favicon.ico` na raiz e cada acesso vira um 404 no log e na métrica."""
+    page = client.get("/").text
+    assert "/static/favicon.svg" in page
+
+    response = client.get("/static/favicon.svg")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/svg+xml")
+
+
 def test_endereco_do_estilo_carrega_o_identificador_de_build(
     client: TestClient,
 ) -> None:
