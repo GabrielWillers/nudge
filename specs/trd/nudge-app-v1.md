@@ -5,63 +5,89 @@ Deriva de `specs/prd/nudge-app-v1.md`.
 ## Changelog
 
 - 2026-07-25 — versão inicial.
+- 2026-07-25 — reescrito para serviço único com HTML no servidor e sem
+  autenticação; removidos frontend em React, identidade, tabela de usuários e
+  API em JSON; acesso a dados passa de assíncrono para síncrono (ADR-0010).
+- 2026-07-25 — fase 2 implementada. Três acréscimos técnicos, e as medições:
+  - **`APP_TIMEZONE` entra na configuração** (padrão `America/Sao_Paulo`). O
+    campo `datetime-local` do formulário não carrega fuso e o ADR-0010 proíbe
+    JavaScript de aplicação, então o fuso do navegador não tem como chegar ao
+    servidor: entrada sem fuso passa a ser interpretada no fuso configurado, e
+    a página exibe nele. Entrada ISO 8601 com offset explícito continua sendo
+    respeitada como está. Fuso do visitante segue fora de escopo (PRD).
+  - **Corpo acima de 16 KB é recusado com 413** por middleware, pelo
+    `Content-Length` declarado.
+  - **Identificador de rota que não é UUID responde 404**, não 422: para o
+    predicado do PRD, "não é um lembrete que existe" é uma coisa só.
+- 2026-07-25 — passada de apresentação, **sem mudança funcional**: nenhuma rota,
+  predicado, dependência ou arquivo novo. Reescrita do `style.css` e marcação dos
+  botões em `index.html`. Fica registrado que o ADR-0004 lista quatro motivos
+  para mexer em `app/` e apresentação não é um deles; a mudança foi pedida
+  explicitamente pelo dono e é reversível em dois arquivos. O que entrou:
+  - esquema claro **e** escuro por `prefers-color-scheme`, no lugar de escuro
+    fixo; contraste medido em todos os pares (mínimo 5,0:1, exigido 4,5:1);
+  - ícones em SVG embutido no lugar dos caracteres `✓`/`○`, com `aria-label`
+    que inclui o título do lembrete — antes todos os botões liam igual;
+  - alvos de toque de 44 px, foco visível, `prefers-reduced-motion` respeitado;
+  - nenhuma fonte externa: pilha do sistema mais monoespaçada nativa para data
+    e identificador de build. A página continua sem buscar recurso de terceiro,
+    e há teste garantindo isso;
+  - vencimento exibido como `sáb, 01 ago 2026 · 09:30`, com as abreviações de
+    dia e mês em português embutidas no código — o locale do container é `C` e
+    não serve. O formato é **absoluto de propósito**: "hoje" ou "em 2 dias"
+    dependeriam do instante da renderização, e a página passaria a mudar sem o
+    dado mudar. O valor de máquina segue em UTC, no atributo `datetime` do
+    elemento `<time>`.
+
+  O campo de entrada continua sendo `datetime-local`: o formato que ele exibe é
+  decidido pelo navegador do visitante, e sem JavaScript (ADR-0010) não há como
+  influenciá-lo.
+- 2026-07-25 — cabeçalho enxugado (some a frase de apresentação, o nome ganha
+  marca e linha de base) e **favicon próprio em `app/static/favicon.svg`**,
+  declarado no `<head>`. O favicon não é enfeite: sem a declaração, o navegador
+  pede `/favicon.ico` na raiz, recebe 404, e cada visita injeta erro no log e na
+  métrica por rota — ruído que apareceria como taxa de erro no painel da fase
+  12. Arquivos de código seguem em 13; o favicon é ativo, como o CSS.
 
 ## Escopo + NFRs
 
-Recorte técnico: dois serviços em container (API HTTP e conteúdo estático) e um
-banco relacional, todos operáveis por um orquestrador de containers e
-configurados exclusivamente por variável de ambiente.
+Recorte técnico: **um** serviço em container que renderiza HTML e fala com um
+banco relacional. Configurado exclusivamente por variável de ambiente.
 
-> Os números abaixo são derivados do contexto conhecido — um nó de 2 vCPU e
-> 4 GB, tráfego de demonstração, escopo funcional congelado (ADR-0004) — e não
-> de medição prévia. São alvos a confirmar na fase 2 da plataforma (medição
-> local) e revalidar na fase 6 (medição em produção), não requisitos de negócio.
+> Números derivados do contexto conhecido — um nó de 2 vCPU e 4 GB, tráfego de
+> demonstração, escopo congelado (ADR-0004) — e não de medição prévia. Alvos a
+> confirmar na fase 2 da plataforma (medição local) e revalidar na fase 6
+> (medição em produção).
 
-**Desempenho** (medido dentro do cluster, excluindo latência de rede do cliente)
+**Desempenho** (medido no cluster, excluindo latência de rede do cliente)
 
-- Listagem de lembretes de um usuário: p95 < 300 ms com até 500 lembretes na
-  tabela.
-- Escrita de lembrete (criar, alterar, apagar): p95 < 300 ms.
-- Autenticação: p95 < 800 ms. O limite é alto de propósito — a verificação de
-  senha é deliberadamente custosa.
-- Partida do backend, da criação do processo até responder prontidão: < 20 s,
-  incluindo a aplicação de migrações pendentes.
+- Renderização da lista: p95 < 300 ms com até 500 lembretes na tabela.
+- Escrita (criar, concluir, apagar): p95 < 300 ms.
+- Partida, da criação do processo até responder prontidão: < 20 s, incluindo
+  migrações pendentes.
 
-**Recurso** (regime normal, somando ao teto de 1 GB da restrição do PRD)
+**Recurso** (regime normal, dentro do teto de 650 MB do PRD)
 
-- Backend: ≤ 300 MB de memória residente; requisição de 100m de CPU, limite de
-  500m.
+- Aplicação: ≤ 250 MB de memória; requisição de 100m de CPU, limite de 500m.
 - Banco: ≤ 400 MB; requisição de 100m de CPU, limite de 500m.
-- Frontend (servidor de conteúdo estático): ≤ 50 MB; requisição de 10m de CPU,
-  limite de 100m.
 
 **Artefato**
 
-- Imagem do backend < 300 MB; imagem do frontend < 80 MB.
-- Pacote JavaScript inicial < 300 KB comprimido.
+- Imagem única < 250 MB. Não há segunda imagem.
 
 **Segurança**
 
-- Senha com hash Argon2id, parâmetros calibrados para custar entre 50 e 150 ms
-  por verificação no nó de produção.
-- Token de acesso JWT assinado em HS256, validade de 60 minutos, sem renovação
-  (ADR-0003).
-- Segredo de assinatura e credencial do banco vêm de variável de ambiente e não
-  têm valor padrão no código: ausência de qualquer um deles impede a partida do
-  processo.
-- Título de lembrete limitado a 200 caracteres; corpo de requisição limitado a
-  16 KB.
-- **Limitação de taxa nas rotas de autenticação não é implementada no
-  aplicativo.** Como o escopo do código está congelado e a aplicação fica
-  publicamente exposta, ela é responsabilidade do controlador de entrada — 10
-  tentativas por IP por minuto, especificado em `specs/trd/plataforma-devops.md`.
-- Processo do container roda como usuário sem privilégio; sistema de arquivos
-  raiz montado somente para leitura.
-
-**Compatibilidade**
-
-- Navegadores em versão corrente com suporte a ES2022. Sem suporte a navegador
-  legado.
+- Sem autenticação no aplicativo (ADR-0010). Em produção, **as rotas de escrita
+  ficam atrás de autenticação básica no controlador de entrada**, e o
+  controlador aplica 60 requisições por IP por minuto. Especificado em
+  `specs/trd/plataforma-devops.md`.
+- Credencial do banco vem de variável de ambiente, sem valor padrão: sua
+  ausência impede a partida do processo.
+- Título limitado a 200 caracteres; corpo de requisição limitado a 16 KB.
+- Templates com escape automático ligado — a entrada é exibida de volta na
+  página, então injeção de HTML é a superfície de ataque real deste aplicativo.
+- Processo roda como usuário sem privilégio; sistema de arquivos raiz somente
+  para leitura.
 
 ## Arquitetura + Contratos
 
@@ -69,227 +95,177 @@ configurados exclusivamente por variável de ambiente.
 
 ```
                     ┌──────────────────────────┐
-   navegador ─────► │  controlador de entrada  │  (um domínio, TLS)
-                    └────────┬─────────┬───────┘
-                       /     │         │  /api
-                             ▼         ▼
-                    ┌────────────┐  ┌──────────────┐
-                    │  frontend  │  │   backend    │
-                    │  (estático)│  │  (API HTTP)  │
-                    └────────────┘  └──────┬───────┘
-                                           │ TCP 5432
-                                           ▼
-                                    ┌──────────────┐
-                                    │  PostgreSQL  │
-                                    └──────────────┘
+   navegador ─────► │  controlador de entrada  │  TLS + autenticação básica
+                    └────────────┬─────────────┘  nas rotas de escrita
+                                 │
+                                 ▼
+                    ┌──────────────────────────┐
+                    │  nudge (FastAPI+Jinja2)  │  1 imagem, 1 Deployment
+                    └────────────┬─────────────┘
+                                 │ TCP 5432
+                                 ▼
+                    ┌──────────────────────────┐
+                    │       PostgreSQL         │  StatefulSet + PVC
+                    └──────────────────────────┘
 ```
 
-Um único domínio serve os dois componentes: o frontend na raiz e a API sob
-`/api` (ADR-0002). O frontend chama a API por caminho relativo, então não há URL
-de API embutida no build nem requisição entre origens.
+Um serviço, um domínio, nenhum roteamento por prefixo. O processo renderiza a
+página e fala com o banco; não há chamada entre serviços, não há CORS, não há
+configuração em tempo de compilação.
 
-O frontend é conteúdo estático já compilado, servido por um servidor web dentro
-da imagem. Ele não fala com o banco. Todo estado de servidor no cliente é cache
-de requisição, invalidado por chave após escrita.
-
-O backend não guarda estado em processo: autenticação é verificada pela
-assinatura do token, sem consulta a armazenamento de sessão. Duas instâncias
-seriam intercambiáveis do ponto de vista do tráfego — mas escalar exige antes
-mover a migração para fora da inicialização (ADR-0007).
-
-Migrações são aplicadas na partida do backend, antes de ele aceitar requisição.
+Migrações são aplicadas na partida, antes de o processo aceitar requisição.
 
 ### Endpoints / Interfaces
 
-Todos sob o prefixo `/api`, exceto as sondas. Erro de validação responde 422 com
-o campo inválido identificado. Toda resposta de erro segue um formato único
-`{ "detail": ... }`.
+Formulários HTML: escrita por POST seguido de redirecionamento 303 para a lista
+(padrão *post/redirect/get*, que evita reenvio ao recarregar). Não há API em
+JSON — nada além do navegador consome estas rotas.
 
 ```
-POST   /api/auth/register   corpo {email, password} -> 201 {id, email}
-                            409 e-mail já em uso | 422 validação
-POST   /api/auth/login      corpo {email, password} -> 200 {access_token,
-                            token_type, expires_in}
-                            401 credencial inválida (mensagem única para
-                            e-mail inexistente e senha errada) | 422
-GET    /api/auth/me         -> 200 {id, email} | 401
+GET    /                        lista em HTML, ordenada por due_at asc
+POST   /reminders               campos: title, due_at
+                                -> 303 para /   | 422 re-renderiza com erro
+POST   /reminders/{id}/toggle   -> 303 para /   | 404
+POST   /reminders/{id}/delete   -> 303 para /   | 404
 
-GET    /api/reminders       -> 200 [reminder], ordenado por due_at asc | 401
-POST   /api/reminders       corpo {title, due_at} -> 201 reminder | 401 | 422
-GET    /api/reminders/{id}  -> 200 reminder | 401 | 404
-PATCH  /api/reminders/{id}  corpo parcial {title?, due_at?, completed?}
-                            -> 200 reminder | 401 | 404 | 422
-DELETE /api/reminders/{id}  -> 204 | 401 | 404
-
-GET    /api/version         -> 200 {version, commit}   (público, sem auth)
+GET    /healthz                 -> 200 {status, version, commit}
+                                   NÃO toca o banco
+GET    /readyz                  -> 200 | 503    verifica o banco
+GET    /metrics                 -> exposição para o coletor
+GET    /version                 -> 200 {version, commit}
 ```
 
-Sondas, servidas pelo backend e **não** publicadas pelo controlador de entrada:
+`/healthz`, `/readyz` e `/metrics` não são publicados pelo controlador de
+entrada: o orquestrador sonda o pod diretamente e o coletor raspa por dentro do
+cluster.
 
-```
-GET    /healthz   -> 200 {status, version, commit}   não toca o banco
-GET    /readyz    -> 200 | 503                       verifica o banco
-GET    /metrics   -> exposição de métricas            (introduzido na fase 12
-                                                       da plataforma)
-```
+`due_at` é convertido para UTC na borda e a página reconverte para exibição.
+Entrada com offset explícito é respeitada; entrada sem offset — o que o campo
+`datetime-local` produz — é interpretada em `APP_TIMEZONE`.
 
-Contratos de comportamento que valem para todas as rotas de lembrete:
-
-- O dono é sempre derivado do token. `user_id` enviado pelo cliente é ignorado.
-- Recurso de outro usuário responde 404, nunca 403 — a existência do
-  identificador não é revelada.
-- `due_at` é aceito em formato ISO 8601 com fuso e devolvido sempre em UTC com
-  sufixo `Z`.
+Corpo de requisição acima de 16 KB é recusado com 413 antes de chegar à rota.
 
 ### Modelo de dados
 
-Tabela `users`
+Tabela `reminders` — a única tabela do sistema.
 
-| campo         | tipo        | obs                                        |
-|---------------|-------------|--------------------------------------------|
-| id            | uuid        | chave primária, gerada na aplicação        |
-| email         | text        | não nulo, único, normalizado em minúsculas |
-| password_hash | text        | não nulo, Argon2id; nunca serializado      |
-| created_at    | timestamptz | não nulo, UTC                              |
+| campo      | tipo         | obs                                          |
+|------------|--------------|----------------------------------------------|
+| id         | uuid         | chave primária, gerada na aplicação          |
+| title      | varchar(200) | não nulo, não vazio após remover espaços     |
+| due_at     | timestamptz  | não nulo, UTC                                |
+| completed  | boolean      | não nulo, padrão falso                       |
+| created_at | timestamptz  | não nulo, UTC                                |
 
-Tabela `reminders`
+Índice em `due_at`, que atende diretamente a consulta da lista.
 
-| campo      | tipo         | obs                                             |
-|------------|--------------|-------------------------------------------------|
-| id         | uuid         | chave primária, gerada na aplicação             |
-| user_id    | uuid         | não nulo, referencia `users.id`, cascata ao apagar |
-| title      | varchar(200) | não nulo, não vazio após remover espaços        |
-| due_at     | timestamptz  | não nulo, UTC                                   |
-| completed  | boolean      | não nulo, padrão falso                          |
-| created_at | timestamptz  | não nulo, UTC                                   |
-| updated_at | timestamptz  | não nulo, UTC, atualizado a cada escrita        |
-
-Índices: único em `users.email`; composto em `reminders (user_id, due_at)`, que
-atende diretamente a consulta de listagem.
-
-A unicidade de e-mail é garantida por índice no banco, não apenas por
-verificação na aplicação — a verificação antecipada existe para dar mensagem de
-erro, e a restrição do banco é a que sustenta a invariante sob concorrência.
-
-Fuso horário: todo instante é gravado e devolvido em UTC. Conversão para o fuso
-do leitor acontece exclusivamente na formatação do frontend.
+Não há tabela de usuários e não há coluna de dono (ADR-0010).
 
 ## Stack + Validação
 
 ### Dependências
 
-Versões abaixo são o piso alvo; a versão exata fica fixada em arquivo de
-travamento no repositório. Nenhuma imagem usa tag móvel.
+Versões abaixo são o piso alvo; a exata fica no arquivo de travamento. Nenhuma
+imagem usa tag móvel. **Uma única cadeia de ferramentas** — Node não existe
+neste repositório.
 
-**Backend**
+| item                     | escolha                                        |
+|--------------------------|------------------------------------------------|
+| linguagem                | Python 3.13                                    |
+| gerência de dependência  | uv, com arquivo de travamento versionado       |
+| framework HTTP           | FastAPI, servido por Uvicorn                   |
+| renderização             | Jinja2, com escape automático                  |
+| estilo                   | um arquivo CSS estático servido pelo próprio app |
+| acesso a dados           | SQLAlchemy 2.x **síncrono** + psycopg          |
+| migração                 | Alembic                                        |
+| configuração             | pydantic-settings                              |
+| métricas                 | instrumentador Prometheus para FastAPI         |
+| análise estática         | Ruff (formatação e regras), mypy               |
+| teste                    | pytest, pytest-cov, httpx                      |
+| banco                    | PostgreSQL 17, major fixado (ADR-0007)         |
 
-| item                     | escolha                                  |
-|--------------------------|------------------------------------------|
-| linguagem                | Python 3.13                              |
-| gerência de dependência  | uv, com arquivo de travamento versionado |
-| framework HTTP           | FastAPI, servido por Uvicorn             |
-| acesso a dados           | SQLAlchemy 2.x em modo assíncrono + asyncpg |
-| migração                 | Alembic                                  |
-| validação e configuração | Pydantic 2 e pydantic-settings           |
-| token                    | PyJWT                                    |
-| hash de senha            | pwdlib com backend Argon2                |
-| análise estática         | Ruff (formatação e regras), mypy         |
-| teste                    | pytest, pytest-asyncio, pytest-cov, httpx |
-
-Escolhas deliberadas de biblioteca: `PyJWT` e `pwdlib` no lugar de
-`python-jose` e `passlib`, ambos sem manutenção ativa. Registrado aqui para que
-a decisão não seja revertida por hábito.
-
-**Frontend**
-
-| item                | escolha                                       |
-|---------------------|-----------------------------------------------|
-| runtime de build    | Node 22 LTS                                   |
-| linguagem           | TypeScript 5 em modo estrito                  |
-| biblioteca de UI    | React 19                                      |
-| empacotador         | Vite                                          |
-| estado de servidor  | TanStack Query                                |
-| navegação           | React Router                                  |
-| estilo              | Tailwind CSS                                  |
-| análise estática    | Biome (formatação e regras em uma ferramenta) |
-| teste               | Vitest, Testing Library, MSW                  |
-| serviço em produção | servidor de conteúdo estático em imagem enxuta |
-
-**Dados**
-
-PostgreSQL 17, versão major fixada explicitamente (ADR-0007).
+Modo síncrono é deliberado: um aplicativo que renderiza página não ganha nada
+com assincronia, e o modo síncrono tem menos armadilhas. Registrado em ADR-0010
+para que não seja revertido por hábito.
 
 ### Configuração
 
-Toda configuração por variável de ambiente, sem valor padrão para segredo:
+| variável          | obs                                        |
+|-------------------|--------------------------------------------|
+| `DATABASE_URL`    | obrigatória, sem padrão                    |
+| `LOG_LEVEL`       | padrão `INFO`                              |
+| `APP_TIMEZONE`    | padrão `America/Sao_Paulo`: fuso de interpretação da entrada sem offset e de exibição na página |
+| `APP_VERSION`     | injetada no build: versão semântica         |
+| `APP_COMMIT`      | injetada no build: commit de origem         |
 
-| variável           | componente | obs                                   |
-|--------------------|------------|---------------------------------------|
-| `DATABASE_URL`     | backend    | obrigatória                            |
-| `JWT_SECRET`       | backend    | obrigatória, sem padrão                |
-| `JWT_TTL_MINUTES`  | backend    | padrão 60                              |
-| `LOG_LEVEL`        | backend    | padrão `INFO`                          |
-| `APP_VERSION`      | ambos      | injetada no build: versão semântica    |
-| `APP_COMMIT`       | ambos      | injetada no build: commit de origem    |
-
-`APP_VERSION` e `APP_COMMIT` entram como argumento de build da imagem. No
-frontend são incorporados ao pacote em tempo de compilação; no backend são lidos
-do ambiente em tempo de execução. Os dois componentes de uma mesma versão são
-construídos do mesmo commit, portanto os valores coincidem — e o critério de
-aceite do PRD verifica isso.
+`APP_VERSION` e `APP_COMMIT` entram como argumento de build e são lidos do
+ambiente em execução, aparecendo em `/healthz`, `/version` e no rodapé da
+página. Com o código congelado, são o único sinal observável de que um deploy
+aconteceu.
 
 ### Critérios de validação
 
-- [ ] Todo predicado do PRD tem teste automatizado correspondente, e a suíte
-      inteira roda com um comando.
-- [ ] Cobertura de linhas do backend ≥ 70%, medida na execução da suíte.
-- [ ] Isolamento por dono coberto por teste que autentica dois usuários
-      distintos e confirma resposta 404 no acesso cruzado em leitura,
-      alteração e exclusão.
-- [ ] Teste confirma que credencial inválida por e-mail inexistente e por senha
-      errada produzem resposta byte a byte idêntica.
-- [ ] Teste de ida e volta de fuso horário: instante enviado em fuso não-UTC
-      é lido de volta como o mesmo instante absoluto.
-- [ ] Teste confirma que a serialização de usuário não contém `password_hash`
-      em nenhuma rota.
-- [ ] Migração aplicada de banco vazio até a versão corrente, e revertida um
-      passo, sem erro.
-- [ ] Índice composto confirmado em uso pelo plano de consulta da listagem.
-- [ ] Partida com `JWT_SECRET` ausente falha imediatamente, com mensagem
-      explícita, e não sobe servidor.
-- [ ] `/readyz` responde 503 com o banco indisponível, verificado derrubando o
-      banco no ambiente local.
-- [ ] Tamanho das duas imagens medido e dentro do limite; processo confirmado
-      rodando sem privilégio.
-- [ ] `docker compose up` a partir do clone entrega interface usável em menos
-      de 2 minutos.
-- [ ] Percentis de latência medidos sob o perfil de carga da fase 11 da
-      plataforma e comparados aos alvos desta seção.
+Medições registradas na fase 2 (2026-07-25), em WSL2 com Docker 29.6.
+
+- [x] Todo predicado do PRD tem teste automatizado, e a suíte roda com um
+      comando (`make test`): 25 testes.
+- [x] Cobertura de linhas ≥ 70% — medida: **98%**. Piso mínimo, não medida de
+      qualidade: o que protege de regressão é a cobertura dos predicados.
+- [x] Contagem de arquivos de código ≤ 20, medida e registrada — **13**
+      (`make files`): 7 módulos Python, 2 templates, 1 CSS, `env.py`,
+      `script.py.mako` e 1 migração. Testes fora da conta, em `tests/`.
+- [x] Teste de ida e volta de fuso: instante enviado em fuso não-UTC é lido de
+      volta como o mesmo instante absoluto (09:30 em −03:00 → 12:30 UTC).
+- [x] Teste confirma que título com marcação HTML é exibido escapado, não
+      interpretado.
+- [x] Teste confirma que `/healthz` responde 200 com o banco derrubado, e que
+      `/readyz` responde 503 na mesma condição. Confirmado também com o banco
+      parado de verdade no Compose: contador de reinício do container do
+      aplicativo permaneceu em 0, e `/readyz` voltou a 200 sozinho.
+- [x] Migração aplicada de banco vazio até a versão corrente, e revertida um
+      passo, sem erro — contra um banco descartável, não o da suíte.
+- [x] Índice de `due_at` confirmado em uso pelo plano de consulta da lista
+      (`EXPLAIN` com 500 linhas e `enable_seqscan = off`: `ix_reminders_due_at`).
+- [x] Partida com `DATABASE_URL` ausente falha imediatamente, com mensagem
+      explícita ("DATABASE_URL é obrigatória e não tem valor padrão").
+- [x] Tamanho da imagem medido e dentro do limite — **67,9 MB** (limite 250 MB);
+      processo confirmado sem privilégio (uid 10001) e a imagem sobe com o
+      sistema de arquivos raiz somente para leitura.
+- [x] `docker compose up` a partir do clone entrega a página usável em menos de
+      2 minutos — **52 s** com build sem cache de camada, 9 s com cache.
+- [ ] Percentis medidos sob o perfil de carga da fase 11 da plataforma e
+      comparados aos alvos desta seção.
+
+Ainda **não** verificados nesta fase, e por quê:
+
+- Varredura de segredo no repositório: a ferramenta (Trivy) entra na fase 9; o
+  invariante é verificado sobre o histórico completo na fase 13.
+- Percentis de latência e consumo de memória: os alvos da seção de NFR seguem
+  derivados, não medidos. Medição local na plataforma e revalidação em produção
+  na fase 6.
 
 ## Riscos e mitigação
 
 - **Escopo da v1 fica incompleto e o congelamento (ADR-0004) o torna
-  permanente** → o PRD é o gate: nenhuma fase avança com predicado sem teste, e
-  a revisão de aceite acontece antes da fase 3 da plataforma.
-- **Suíte de testes fraca torna decorativo todo o pipeline** → cobertura mínima
-  é critério de aceite, e a suíte é escrita contra os predicados, não contra a
-  implementação.
-- **Argon2 calibrado alto demais estoura o limite de CPU do nó e faz a
-  autenticação expirar** → parâmetros calibrados por medição, não copiados de
-  exemplo: primeiro na máquina de desenvolvimento (fase 2) e **revalidados no nó
-  de produção na fase 6**, que é quando o hardware alvo passa a existir. O
-  limite de 500m de CPU é verificado sob autenticação concorrente.
-- **Sem limitação de taxa no aplicativo, a rota de autenticação fica exposta a
-  força bruta** → limitação no controlador de entrada, especificada no TRD da
-  plataforma. Enquanto ela não existir, a produção não deve ser divulgada
-  publicamente.
-- **Migração na partida quebra se o backend for escalado** → registrado em
-  ADR-0007; escalar exige antes extrair a migração para um passo próprio.
-- **Token sem revogação: vazamento dá acesso até expirar** → validade curta;
-  consequência assumida em ADR-0003.
-- **Aplicação e banco juntos estouram o teto de 1 GB do nó** → limites de
-  recurso declarados por container e memória medida em regime normal antes de
-  a fase 12 adicionar a pilha de observabilidade.
-- **Sem paginação, a listagem degrada se o volume crescer além do previsto** →
-  alvo de p95 especificado com 500 lembretes; acima disso o comportamento é
-  explicitamente não suportado.
+  permanente** → o PRD é o gate: nenhuma fase avança com predicado sem teste.
+- **Suíte pequena torna a cobertura fácil demais para significar algo** →
+  consequência assumida em ADR-0010; a cobertura é piso mínimo, não medida de
+  qualidade. O que protege de regressão é a cobertura *dos predicados*, não o
+  percentual.
+- **Lista compartilhada e pública é vandalizada** → autenticação básica no
+  controlador de entrada nas rotas de escrita. Como a defesa vive fora do
+  aplicativo, um erro de configuração de entrada expõe a escrita sem segunda
+  linha; a validação da fase 6 verifica isso explicitamente.
+- **Entrada do visitante é reexibida na página: injeção de HTML** → escape
+  automático do Jinja2 nunca desligado, e teste cobrindo o caso.
+- **Migração na partida quebra se o serviço for escalado** → registrado em
+  ADR-0007; escalar exige extrair a migração para um passo próprio.
+- **Aplicação e banco estouram o teto de 650 MB** → limites declarados por
+  container e memória medida antes de a fase 12 somar a pilha de
+  observabilidade.
+- **Sem paginação, a lista degrada acima do volume previsto** → alvo de p95
+  especificado com 500 lembretes; acima disso o comportamento é explicitamente
+  não suportado.
+- **`/healthz` acabar dependendo do banco por descuido numa refatoração** →
+  é invariante do PRD e tem teste dedicado; a consequência seria reinício em
+  laço durante qualquer indisponibilidade do banco.

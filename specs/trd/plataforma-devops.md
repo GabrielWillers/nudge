@@ -5,6 +5,9 @@ Deriva de `specs/prd/plataforma-devops.md`.
 ## Changelog
 
 - 2026-07-25 — versão inicial.
+- 2026-07-25 — aplicação passa a ser um serviço único sem autenticação
+  (ADR-0010): uma imagem em vez de duas, sem roteamento por prefixo, e a
+  proteção de escrita migra para autenticação básica no controlador de entrada.
 
 ## Escopo + NFRs
 
@@ -27,10 +30,9 @@ declarado; e a instrumentação que prova que tudo isso funciona.
 
 **Ciclo de entrega**
 
-- Verificação de proposta de mudança: veredito em < 10 min, com os componentes
-  verificados em paralelo.
-- Publicação de versão (construção, varredura e envio das duas imagens):
-  < 15 min.
+- Verificação de proposta de mudança: veredito em < 10 min, com as checagens
+  independentes (formatação, regras, tipos, testes) em paralelo.
+- Publicação de versão (construção, varredura e envio da imagem): < 10 min.
 - Convergência do cluster após alteração do estado declarado: < 5 min sem
   intervenção.
 - Rollback para versão anterior: < 5 min, sem reconstruir imagem.
@@ -49,10 +51,11 @@ declarado; e a instrumentação que prova que tudo isso funciona.
 **Segurança**
 
 - Nenhum segredo em texto claro em nenhum commit do histórico.
-- Limitação de taxa no controlador de entrada: 10 requisições por IP por
-  minuto nas rotas de autenticação, 60 por minuto nas demais. Esta é a
-  contrapartida de o aplicativo não implementar limitação própria — ver TRD da
-  aplicação.
+- **Autenticação básica no controlador de entrada nas rotas de escrita**
+  (`POST /reminders*`), e limitação de 60 requisições por IP por minuto em todas
+  as rotas. Como o aplicativo não tem autenticação nem limitação próprias
+  (ADR-0010), esta é a única defesa: erro de configuração aqui expõe a escrita
+  diretamente.
 - TLS 1.2 ou superior; porta 80 responde exclusivamente redirecionamento.
 - Certificado renovado automaticamente com pelo menos 30 dias de antecedência.
 - Nenhum container roda como superusuário; sistema de arquivos raiz somente
@@ -71,7 +74,7 @@ declarado; e a instrumentação que prova que tudo isso funciona.
 
 **Observabilidade**
 
-- Métricas de latência, taxa de erro e saturação dos dois componentes, com pelo
+- Métricas de latência, taxa de erro e saturação do serviço, com pelo
   menos 7 dias de histórico.
 - Coleta a cada 30 s.
 - Alerta entregue em canal externo em < 5 min após a condição persistir pelo
@@ -91,13 +94,13 @@ declarado; e a instrumentação que prova que tudo isso funciona.
  │   repositório    │──────────────►│ integração contínua   │
  │  (fonte única)   │               │ lint, tipos, teste,   │
  │                  │◄──────────────│ varredura, cobertura  │
- │  backend/        │  atualiza a   └───────────┬───────────┘
- │  frontend/       │  referência               │ publica por tag
- │  k8s/            │  de imagem                ▼
- │   ├─ base/       │               ┌───────────────────────┐
- │   └─ overlays/   │               │  registro de imagens  │
- │  infra/          │               │      (imutável)       │
- │  specs/          │               └───────────┬───────────┘
+ │  app/            │  atualiza a   └───────────┬───────────┘
+ │  k8s/            │  referência               │ publica por tag
+ │   ├─ base/       │  de imagem                ▼
+ │   └─ overlays/   │               ┌───────────────────────┐
+ │  infra/          │               │  registro de imagens  │
+ │  specs/          │               │      (imutável)       │
+ │                  │               └───────────┬───────────┘
  └────────┬─────────┘                           │
           │ observa k8s/overlays/prod           │ baixa imagem
           ▼                                     │
@@ -108,9 +111,9 @@ declarado; e a instrumentação que prova que tudo isso funciona.
  ┌────────────────────────────────────────────────────────────┐
  │  cluster gerenciado — 1 nó, 2 vCPU / 4 GB                   │
  │                                                             │
- │   entrada (portas 80/443 no nó)  ──► frontend               │
- │        │                          ──► backend ──► postgres  │
- │        └─ TLS por desafio de DNS                  (volume)   │
+ │   entrada (80/443 no nó) ──► nudge ──► postgres (volume)     │
+ │        │                                                     │
+ │        └─ TLS por desafio de DNS + auth básica na escrita     │
  │                                                             │
  │   emissor de certificado    observabilidade    backup diário │
  └────────────────────────────────────────────────────────────┘
@@ -139,8 +142,8 @@ continua sendo o repositório, aplicado manualmente.
 **Estrutura do repositório**
 
 ```
-backend/            aplicação (ver TRD nudge-app-v1)
-frontend/           aplicação (ver TRD nudge-app-v1)
+app/                aplicação: FastAPI + Jinja2, imagem única
+                    (ver TRD nudge-app-v1)
 k8s/
   base/             recursos comuns aos dois ambientes
   overlays/local/   sobreposição do cluster local
@@ -156,9 +159,9 @@ compose.yaml        ambiente de desenvolvimento do aplicativo (não valida
 
 | gatilho                      | efeito                                                        |
 |------------------------------|---------------------------------------------------------------|
-| proposta de mudança aberta   | verificação por componente em paralelo; bloqueia integração se falhar |
+| proposta de mudança aberta   | checagens independentes em paralelo; bloqueia integração se falhar |
 | integração na linha principal| verificação novamente; nenhuma publicação                     |
-| marcação `v<major.minor.patch>` | constrói, varre e publica as duas imagens; atualiza a referência de imagem na sobreposição de produção |
+| marcação `v<major.minor.patch>` | constrói, varre e publica a imagem; atualiza a referência de imagem na sobreposição de produção |
 | agenda diária                | varredura de dependência abre proposta de atualização          |
 | agenda diária (no cluster)   | despejo do banco enviado ao armazenamento de objeto            |
 
@@ -174,15 +177,14 @@ conteúdo diferente.
 
 | carga            | recurso do Kubernetes | exposição                       |
 |------------------|-----------------------|---------------------------------|
-| frontend         | Deployment            | Service interno; entrada em `/` |
-| backend          | Deployment            | Service interno; entrada em `/api` |
+| nudge            | Deployment            | Service interno; entrada em `/`, escrita atrás de auth básica |
 | banco            | StatefulSet + PVC     | Service interno, sem exposição externa (ADR-0007) |
 | backup           | CronJob               | nenhuma                         |
 | entrada          | controlador com portas 80/443 no nó | público (ADR-0009) |
 | certificado      | emissor com desafio de DNS | nenhuma                    |
 
 Sondas: sonda de vivacidade contra `/healthz`, que não toca o banco, para que
-uma indisponibilidade do banco não provoque reinício em laço do backend; sonda
+uma indisponibilidade do banco não provoque reinício em laço do serviço; sonda
 de prontidão contra `/readyz`, que toca o banco, para tirar a instância do
 tráfego. Sonda de partida cobrindo o tempo de migração declarado no TRD da
 aplicação.
@@ -201,7 +203,8 @@ aplicação.
 **Segredos**
 
 Quatro segredos existem em produção: credencial do banco, segredo de assinatura
-de token, credencial de API de DNS para o emissor de certificado e credencial do
+de autenticação básica da entrada, credencial de API de DNS para o emissor de
+certificado e credencial do
 armazenamento de objeto para o backup. Todos ficam cifrados no repositório
 (fase 13) e decifrados no cluster. Até a fase 13, são aplicados manualmente e o
 procedimento fica documentado — nunca versionados em texto claro.
@@ -263,8 +266,9 @@ Agrupados pela fase que os torna verificáveis.
       ferramenta externa.
 - [ ] Requisição em texto claro é redirecionada, e nenhuma outra resposta em
       texto claro é possível.
-- [ ] Limitação de taxa confirmada: décima primeira tentativa de autenticação
-      no mesmo minuto é recusada pela entrada.
+- [ ] Rota de escrita requisitada sem credencial é recusada pela entrada,
+      enquanto a leitura da lista continua pública.
+- [ ] Limitação de taxa confirmada na entrada.
 
 **Fase 8 — infraestrutura como código**
 - [ ] `destroy` seguido de `apply` recria cluster, node pool, DNS e firewall, e
@@ -297,7 +301,7 @@ Agrupados pela fase que os torna verificáveis.
 - [ ] Confirmado que nenhum teste alcança o banco de produção.
 
 **Fase 12 — observabilidade**
-- [ ] Painel apresenta latência, taxa de erro e saturação dos dois componentes,
+- [ ] Painel apresenta latência, taxa de erro e saturação do serviço,
       com 7 dias de histórico.
 - [ ] Alerta disparado em teste deliberado e entregue em canal externo em
       < 5 min.

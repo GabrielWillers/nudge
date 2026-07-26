@@ -2,7 +2,7 @@
 
 ## Status
 
-Aceito — 2026-07-25
+Substituído por ADR-0010 — 2026-07-25
 
 ## Contexto
 
