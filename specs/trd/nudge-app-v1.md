@@ -59,6 +59,11 @@ Deriva de `specs/prd/nudge-app-v1.md`.
   Também entra `Cache-Control: no-cache` em `/static`, para que o navegador
   revalide o estilo em vez de decidir por cache heurístico — sem isso, um
   deploy que muda só apresentação pode ficar invisível.
+- 2026-07-25 — o rodapé passa a exibir **apenas a versão**; commit e fuso saem
+  do texto visível e ficam no `title` do elemento. O commit continua na página
+  (ao alcance do cursor e de quem inspeciona o HTML) e inteiro em `/version` e
+  `/healthz` — necessário porque o rollback da fase 10 pode reimplantar a mesma
+  versão semântica, e nesse caso só o commit distingue os dois builds.
 
 ## Escopo + NFRs
 
