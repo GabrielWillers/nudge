@@ -76,7 +76,15 @@ def create_app() -> FastAPI:
             return PlainTextResponse(
                 "corpo de requisição muito grande", status_code=413
             )
-        return await call_next(request)
+        response = await call_next(request)
+
+        # `no-cache` não é "não guarde": é "revalide antes de usar". Sem isso o
+        # navegador aplica cache heurístico e pode servir estilo antigo depois
+        # de um deploy — invisível justamente num app de código congelado. Com
+        # ETag, a revalidação custa um 304 de poucos bytes.
+        if request.url.path.startswith("/static"):
+            response.headers["cache-control"] = "no-cache"
+        return response
 
     @app.get("/healthz", include_in_schema=False)
     def healthz() -> JSONResponse:

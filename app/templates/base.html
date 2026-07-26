@@ -33,9 +33,13 @@
 
     <footer class="rodape">
       <!-- Identificador de build: com o escopo congelado, é o único sinal
-           observável de que um deploy aconteceu. -->
-      versão <strong>{{ version }}</strong> · commit <code>{{ commit }}</code>
-      · horários em {{ timezone }}
+           observável de que um deploy aconteceu. O rodapé mostra só a versão;
+           o commit e o fuso continuam na página, ao alcance do cursor e de
+           quem inspecionar o HTML, e o commit segue inteiro em /version. -->
+      versão
+      <strong title="commit {{ commit }} · horários em {{ timezone }}">
+        {{ version }}
+      </strong>
     </footer>
   </body>
 </html>

@@ -48,6 +48,22 @@ Deriva de `specs/prd/nudge-app-v1.md`.
   pede `/favicon.ico` na raiz, recebe 404, e cada visita injeta erro no log e na
   métrica por rota — ruído que apareceria como taxa de erro no painel da fase
   12. Arquivos de código seguem em 13; o favicon é ativo, como o CSS.
+- 2026-07-25 — **mudança de contrato de rota**, decidida pelo dono: `POST
+  /reminders` deixa de responder 422 com a página de erro e passa a responder
+  303 sempre. Motivo observado no navegador: a página de erro morava na URL do
+  POST, então recarregá-la disparava o diálogo de reenvio de formulário —
+  exatamente o que o padrão *post/redirect/get* existe para evitar, e que o
+  aplicativo cumpria em todo lugar menos aqui. A mensagem passa a viajar em
+  cookie de vida curta (acima). Nenhum predicado do PRD muda: ele exige
+  "mensagem na própria página e nada gravado", e não um código de status.
+  Também entra `Cache-Control: no-cache` em `/static`, para que o navegador
+  revalide o estilo em vez de decidir por cache heurístico — sem isso, um
+  deploy que muda só apresentação pode ficar invisível.
+- 2026-07-25 — o rodapé passa a exibir **apenas a versão**; commit e fuso saem
+  do texto visível e ficam no `title` do elemento. O commit continua na página
+  (ao alcance do cursor e de quem inspeciona o HTML) e inteiro em `/version` e
+  `/healthz` — necessário porque o rollback da fase 10 pode reimplantar a mesma
+  versão semântica, e nesse caso só o commit distingue os dois builds.
 
 ## Escopo + NFRs
 
@@ -121,10 +137,18 @@ Formulários HTML: escrita por POST seguido de redirecionamento 303 para a lista
 (padrão *post/redirect/get*, que evita reenvio ao recarregar). Não há API em
 JSON — nada além do navegador consome estas rotas.
 
+O redirecionamento vale **também para erro de validação**. A mensagem e o que
+o visitante digitou atravessam o redirecionamento num cookie `nudge_flash`
+(`HttpOnly`, `SameSite=Lax`, 60 s), lido e apagado na renderização seguinte.
+Não é assinado nem cifrado, e não precisa ser: não carrega segredo, o conteúdo
+é escapado pelo template como qualquer entrada, e forjá-lo só afeta quem
+forjou. Cookie ilegível é ignorado.
+
 ```
 GET    /                        lista em HTML, ordenada por due_at asc
 POST   /reminders               campos: title, due_at
-                                -> 303 para /   | 422 re-renderiza com erro
+                                -> 303 para / sempre, inclusive quando a
+                                   validação falha
 POST   /reminders/{id}/toggle   -> 303 para /   | 404
 POST   /reminders/{id}/delete   -> 303 para /   | 404
 
