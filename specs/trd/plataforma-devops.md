@@ -8,6 +8,10 @@ Deriva de `specs/prd/plataforma-devops.md`.
 - 2026-07-25 — aplicação passa a ser um serviço único sem autenticação
   (ADR-0010): uma imagem em vez de duas, sem roteamento por prefixo, e a
   proteção de escrita migra para autenticação básica no controlador de entrada.
+- 2026-07-26 — fase 4: fixado o endereço do repositório de imagens
+  (`ghcr.io/gabrielwillers/nudge`) e documentado o procedimento manual de
+  publicação (`make release`), com os três guarda-corpos que substituem o
+  pipeline até a fase 9.
 
 ## Escopo + NFRs
 
@@ -167,11 +171,37 @@ compose.yaml        ambiente de desenvolvimento do aplicativo (não valida
 
 **Identificação de imagem**
 
+O repositório de imagens é `ghcr.io/gabrielwillers/nudge`, público — o pacote
+público dispensa credencial de puxada nos dois ambientes, e a imagem não carrega
+segredo algum, porque toda a configuração entra por variável de ambiente.
+
 Cada imagem recebe, no mínimo, a versão semântica e o commit de origem. A
 sobreposição de produção referencia **sempre a versão semântica**, nunca uma
 tag móvel: é isso que faz o rollback ser a edição de uma linha e que garante a
 invariante de imutabilidade. Uma versão já publicada nunca é republicada com
 conteúdo diferente.
+
+**Publicação manual (fases 4 a 8)**
+
+Enquanto a fase 9 não existir, a imagem sai da máquina do operador (ADR-0006), e
+o rigor do operador é a única proteção. `make release` materializa esse rigor em
+três recusas, que são o que o pipeline vai herdar:
+
+| guarda-corpo                         | o que evita                                        |
+|--------------------------------------|----------------------------------------------------|
+| árvore de trabalho limpa             | publicar código que não está em nenhum commit      |
+| `HEAD` exatamente sobre uma tag      | digitar a versão à mão e errá-la                   |
+| recusa se a tag já existe no registro | sobrescrever versão publicada (invariante do PRD)  |
+
+A versão e o commit não são argumentos do comando: saem de `git describe
+--tags --exact-match` e `git rev-parse HEAD`, de modo que a imagem não tem como
+alegar procedência diferente da que tem. O fluxo é `git tag vX.Y.Z` na linha
+principal, depois `make release`.
+
+A recusa de sobrescrita é verificação do lado do cliente, não garantia do
+registro: o GHCR aceita reescrever uma tag. Até a fase 9 mover a publicação para
+a automação, a imutabilidade depende desse comando ser o único caminho de
+publicação.
 
 **Recursos no cluster**
 
