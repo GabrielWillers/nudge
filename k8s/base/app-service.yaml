@@ -14,5 +14,4 @@ spec:
     - name: http
       protocol: TCP
       port: 80
-      # A aplicação é uvicorn na 8000 (EXPOSE 8000 no Dockerfile).
       targetPort: http

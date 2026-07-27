@@ -1,9 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Recursos comuns aos dois ambientes. O que difere entre local e produção
-# (versão da imagem, classe de armazenamento, domínio, TLS, proteção de escrita)
-# vive nas sobreposições, nunca aqui.
 resources:
   - app-deployment.yaml
   - app-service.yaml
