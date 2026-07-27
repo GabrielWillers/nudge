@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nudge
+  labels:
+    app.kubernetes.io/name: nudge
+    app.kubernetes.io/component: ingress
+spec:
+  # O controlador em si (ingress-nginx) é uma carga instalada no cluster, não um
+  # recurso deste repositório: um Service solto com seletor que nada satisfaz
+  # não roteia nada. Aqui declara-se apenas a regra de roteamento.
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nudge
+                port:
+                  name: http
+# `/healthz`, `/readyz` e `/metrics` não devem ser publicados pela entrada
+# (TRD da aplicação). O Ingress não tem como excluir caminho — `pathType:
+# Prefix` em `/` casa tudo — e as anotações de snippet do ingress-nginx vêm
+# desligadas por padrão desde a 1.9 (`allow-snippet-annotations=false`).
+# Bloqueá-los é configuração do controlador, tarefa da fase 6, não deste
+# arquivo. Até lá, os três respondem pela entrada.

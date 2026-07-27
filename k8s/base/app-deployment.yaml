@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nudge
+  labels:
+    app.kubernetes.io/name: nudge
+    app.kubernetes.io/component: app
+spec:
+  # Uma réplica, não três: a migração de schema roda na partida do processo, e
+  # duas instâncias subindo juntas disparam dois Alembic contra o mesmo banco
+  # (ADR-0007). Escalar exige antes extrair a migração para um Job próprio.
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nudge
+      app.kubernetes.io/component: app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nudge
+        app.kubernetes.io/component: app
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nudge
+          # Sem tag: cada sobreposição fixa a versão semântica. Tag móvel aqui
+          # quebraria o rollback por edição de uma linha.
+          image: ghcr.io/gabrielwillers/nudge
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            # O segredo nunca está no manifesto: só a referência a ele.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: nudge-db
+                  key: database-url
+            - name: APP_TIMEZONE
+              value: America/Sao_Paulo
+            - name: LOG_LEVEL
+              value: INFO
+          # Sonda de partida contra /readyz: cobre o tempo de migração antes de
+          # a vivacidade começar a contar. 15 x 2 s = 30 s, com folga sobre os
+          # 20 s de partida declarados no TRD da aplicação.
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 15
+          # Vivacidade contra /healthz, que NÃO toca o banco: se tocasse, uma
+          # indisponibilidade do banco reiniciaria o serviço em laço.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          # Prontidão contra /readyz, que toca o banco: tira a instância do
+          # tráfego sem matá-la.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        # A raiz é somente leitura; /tmp é o único caminho que o processo pode
+        # precisar escrever.
+        - name: tmp
+          emptyDir: {}

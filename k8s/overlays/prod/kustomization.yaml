@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Sobreposição de produção — único caminho observado pelo reconciliador GitOps
+# a partir da fase 10 (ADR-0001). Commit que não toca este diretório não provoca
+# convergência.
+resources:
+  - ../../base
+
+images:
+  - name: ghcr.io/gabrielwillers/nudge
+    newTag: v1.0.0
+
+patches:
+  # Volume de bloco do provedor, não a classe do kind (ADR-0005/0007).
+  - target:
+      kind: StatefulSet
+      name: nudge-db
+    patch: |
+      - op: add
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+        value: do-block-storage
+  # TODO(fase 6): domínio público e TLS. O host abaixo é marcador — o domínio
+  # ainda não foi registrado, e é isso que bloqueia a fase 6. O emissor de
+  # certificado por desafio de DNS entra junto, via cert-manager.
+  #
+  # TODO(fase 6): proteção de escrita. O ADR-0010 tirou a autenticação do
+  # aplicativo, então a lista compartilhada só fica protegida por autenticação
+  # básica na entrada, sobre as rotas POST (`/reminders`...). Enquanto não
+  # existir, produção não deve ser divulgada: qualquer visitante escreve.
