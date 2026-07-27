@@ -12,6 +12,13 @@ Deriva de `specs/prd/plataforma-devops.md`.
   (`ghcr.io/gabrielwillers/nudge`) e documentado o procedimento manual de
   publicação (`make release`), com os três guarda-corpos que substituem o
   pipeline até a fase 9.
+- 2026-07-26 — fase 5: estado declarado materializado em `k8s/base` mais
+  sobreposições `local` e `prod`. Ressalva descoberta na implementação: o
+  Ingress não consegue excluir caminho (`pathType: Prefix` em `/` casa tudo) e
+  as anotações de snippet do ingress-nginx vêm desligadas por padrão desde a
+  1.9, então `/healthz`, `/readyz` e `/metrics` **continuam publicados pela
+  entrada** até a fase 6 configurar o controlador. O segredo `nudge-db` é
+  aplicado à mão e o procedimento está em `k8s/README.md`.
 
 ## Escopo + NFRs
 

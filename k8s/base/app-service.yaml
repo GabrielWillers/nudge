@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nudge
+  labels:
+    app.kubernetes.io/name: nudge
+    app.kubernetes.io/component: app
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nudge
+    app.kubernetes.io/component: app
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      # A aplicação é uvicorn na 8000 (EXPOSE 8000 no Dockerfile).
+      targetPort: http
