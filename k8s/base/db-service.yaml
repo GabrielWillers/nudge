@@ -6,8 +6,6 @@ metadata:
     app.kubernetes.io/name: nudge
     app.kubernetes.io/component: db
 spec:
-  # Headless: o StatefulSet precisa de identidade estável por pod, e o banco
-  # não é balanceado. Sem exposição externa (ADR-0007).
   clusterIP: None
   selector:
     app.kubernetes.io/name: nudge

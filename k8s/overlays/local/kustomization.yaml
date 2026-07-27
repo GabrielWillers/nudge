@@ -1,19 +1,14 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Sobreposição do cluster kind (ADR-0008).
 resources:
   - ../../base
 
-# A versão é declarada, nunca `latest`: é o que torna o rollback a edição de
-# uma linha e o que mantém a invariante de imutabilidade do PRD.
 images:
   - name: ghcr.io/gabrielwillers/nudge
     newTag: v1.0.0
 
 patches:
-  # O kind traz a classe `standard` como padrão; explicitá-la evita o PVC ficar
-  # pendente caso o cluster tenha outra classe marcada como padrão.
   - target:
       kind: StatefulSet
       name: nudge-db
@@ -21,12 +16,3 @@ patches:
       - op: add
         path: /spec/volumeClaimTemplates/0/spec/storageClassName
         value: standard
-  # Sem domínio no ambiente local: a entrada atende pelo host do kind.
-  - target:
-      kind: Ingress
-      name: nudge
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          kubernetes.io/description: "entrada local do kind, sem TLS"

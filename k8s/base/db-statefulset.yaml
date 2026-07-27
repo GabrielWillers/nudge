@@ -6,7 +6,6 @@ metadata:
     app.kubernetes.io/name: nudge
     app.kubernetes.io/component: db
 spec:
-  # Precisa casar com o nome do Service headless, senão o pod não ganha DNS.
   serviceName: nudge-db
   replicas: 1
   selector:
@@ -23,14 +22,10 @@ spec:
         runAsNonRoot: true
         runAsUser: 999
         runAsGroup: 999
-        # Faz o volume novo nascer pertencendo ao grupo do postgres; sem isso o
-        # initdb não consegue escrever no PVC recém-criado.
         fsGroup: 999
         seccompProfile:
           type: RuntimeDefault
       containers:
-        # Nome do container é rótulo DNS: não aceita ':' nem '@'. A imagem vai
-        # em `image`, fixada por digest como o resto do projeto.
         - name: postgres
           image: postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3
           ports:
@@ -46,8 +41,6 @@ spec:
                 secretKeyRef:
                   name: nudge-db
                   key: postgres-password
-            # O PVC é montado em /var/lib/postgresql/data e nasce com um
-            # lost+found; o initdb recusa diretório não vazio. Daí o subdiretório.
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
           readinessProbe:
